@@ -19,7 +19,7 @@ STAGES = [
     "6. Public Key Exchange",
     "7. Alice's Shared Secret",
     "8. Bob's Shared Secret",
-    "9. Verification & KDF",
+    "9. Verification & HKDF",
 ]
 
 
@@ -229,6 +229,10 @@ def render_key_exchange(result: Optional[ExchangeResult]) -> None:
         "Step through all nine protocol stages to observe how Alice and Bob construct "
         "an identical shared secret over a public channel."
     )
+    st.caption(
+        "Raw DH shared secret and derived key material are different values. HKDF-SHA256 "
+        "derives key material; this educational walkthrough does not authenticate peers."
+    )
 
     if result is None:
         st.warning("Configure valid parameters above to run the key exchange simulation.")
@@ -342,7 +346,7 @@ def render_key_exchange(result: Optional[ExchangeResult]) -> None:
             st.success(
                 f"Match Verified! Both Alice and Bob hold shared secret S = {result['shared_secret']}."
             )
-            st.code(f"SHA-256 Derived 256-bit Session Key: {derived_key}", language="text")
+            st.code(f"HKDF-SHA256 derived 256-bit key material: {derived_key}", language="text")
         else:
             st.error("Shared secrets do not match.")
 

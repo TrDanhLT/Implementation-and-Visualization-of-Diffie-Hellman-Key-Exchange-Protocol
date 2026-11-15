@@ -214,8 +214,9 @@ def render_mitm_attack(result: Optional[ExchangeResult]) -> None:
     if mitm["attack_succeeded"]:
         st.error(
             "MITM Attack Succeeded: Eve shares S_AE with Alice and S_BE with Bob. "
-            "Eve can decrypt Alice's messages with S_AE, read or alter them, and re-encrypt "
-            "them for Bob using S_BE without either party detecting tampering."
+            "This page demonstrates key agreement only: it does not encrypt, decrypt, "
+            "authenticate, or modify application messages. In a protocol that uses these "
+            "secrets for encryption, the missing authentication lets Eve establish separate keys."
         )
         if mitm["alice_shared_secret"] == mitm["bob_shared_secret"]:
             st.warning(

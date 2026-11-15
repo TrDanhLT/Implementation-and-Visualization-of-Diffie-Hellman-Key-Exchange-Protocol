@@ -15,7 +15,7 @@ from dh_app.diffie_hellman import (
     validate_private_key,
     validate_public_key,
 )
-from dh_app.key_derivation import derive_hex_key
+from dh_app.key_derivation import derive_hex_key, derive_key
 
 
 class TestDiffieHellmanCore(unittest.TestCase):
@@ -84,8 +84,9 @@ class TestDiffieHellmanCore(unittest.TestCase):
             validate_public_key(0, 23)
         with self.assertRaises(DiffieHellmanError):
             validate_public_key(1, 23)
+        self.assertEqual(validate_public_key(22, 23), 22)  # allowed in the full-group model
         with self.assertRaises(DiffieHellmanError):
-            validate_public_key(22, 23)  # p - 1 trivial subgroup
+            validate_public_key(23, 23)  # outside the field
         with self.assertRaises(DiffieHellmanError):
             validate_public_key(False, 23)
 
@@ -118,6 +119,13 @@ class TestDiffieHellmanCore(unittest.TestCase):
         with self.assertRaises(DiffieHellmanError):
             modular_exponentiation_steps(5, 6, 1)
 
+    def test_modular_exponentiation_matches_builtin_across_edges(self):
+        for base in (-7, 0, 1, 5, 23):
+            for exponent in (0, 1, 2, 7, 16):
+                for modulus in (2, 5, 23, 97):
+                    actual, _ = modular_exponentiation_steps(base, exponent, modulus)
+                    self.assertEqual(actual, pow(base, exponent, modulus))
+
     def test_successful_key_exchange(self):
         result = calculate_exchange(23, 5, 6, 15)
         self.assertEqual(result["A"], 8)
@@ -138,13 +146,24 @@ class TestDiffieHellmanCore(unittest.TestCase):
         with self.assertRaises(DiffieHellmanError):
             calculate_exchange(23, 5, True, 15)
 
+    def test_smallest_supported_prime_exchange(self):
+        result = calculate_exchange(5, 2, 2, 3)
+        self.assertEqual(result["alice_secret"], result["bob_secret"])
+
     def test_key_derivation(self):
         hex_key = derive_hex_key(2, byte_length=16)
         self.assertEqual(len(hex_key), 32)
+        key = derive_key(2, salt=b"salt", info=b"test", byte_length=32)
+        self.assertEqual(len(key), 32)
+        self.assertEqual(key, derive_key(2, salt=b"salt", info=b"test", byte_length=32))
+        self.assertNotEqual(key, derive_key(2, salt=b"other", info=b"test", byte_length=32))
+        self.assertNotEqual(key, derive_key(2, salt=b"salt", info=b"other", byte_length=32))
         with self.assertRaises(DiffieHellmanError):
             derive_hex_key(-1)
         with self.assertRaises(DiffieHellmanError):
-            derive_hex_key(2, byte_length=64)
+            derive_key(2, byte_length=8161)
+        with self.assertRaises(DiffieHellmanError):
+            derive_key(2, salt="not bytes")
 
 
 if __name__ == "__main__":

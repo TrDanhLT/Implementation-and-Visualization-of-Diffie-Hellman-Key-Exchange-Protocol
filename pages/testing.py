@@ -27,8 +27,8 @@ def render_testing() -> None:
     """Render the automated unit testing verification page."""
     st.header("Automated Unit Testing")
     st.write(
-        "All cryptographic calculations, parameter validators, MITM simulations, and brute-force "
-        "routines are decoupled from Streamlit and verified via Python's built-in unittest framework."
+        "The mathematical core, validators, MITM calculations, and bounded brute-force routine "
+        "are decoupled from Streamlit and verified with Python's built-in unittest framework."
     )
 
     if st.button("Run Unit Test Suite Now", type="primary") or "last_test_run" not in st.session_state:
@@ -86,4 +86,4 @@ def render_testing() -> None:
     st.code(report["log"], language="text")
 
     st.subheader("Command-Line Execution")
-    st.code("python -m unittest discover -s tests -v", language="bash")
+    st.code("python3 -m unittest discover -s tests -v", language="bash")

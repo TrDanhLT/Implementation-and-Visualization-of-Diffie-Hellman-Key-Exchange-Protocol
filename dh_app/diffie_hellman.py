@@ -17,10 +17,10 @@ Mathematical Overview:
    - By modular exponentiation properties, S_A == S_B.
 
 Educational Disclaimer:
-The small primes supported by this interactive simulator are strictly for classroom
-and self-study visualization. Production systems require standardized safe primes
-(at least 2048-3072 bits) or elliptic-curve groups (e.g., X25519) combined with
-explicit authentication (such as TLS certificates or digital signatures).
+The implementation validates educational-size primes with trial division and models
+the full multiplicative group. It does not implement a prime-order subgroup or a
+general small-subgroup defense. Production systems should use standardized protocol
+implementations with authenticated key exchange.
 """
 
 from dataclasses import dataclass
@@ -169,10 +169,11 @@ def validate_private_key(key: Any, p: int, owner: str = "Private key") -> int:
 
 
 def validate_public_key(public_key: Any, p: int, owner: str = "Public key") -> int:
-    """Validate that a received public key lies in the non-trivial subgroup [2, p - 2].
+    """Validate a non-identity field element for the selected full-group model.
 
-    Rejects trivial/degenerate values (0, 1, p - 1, or values outside [2, p - 2])
-    that would leak the shared secret or force a small subgroup.
+    This deliberately does not claim subgroup validation: the application models
+    Z_p* with a primitive root and accepts generated values in [2, p - 1].
+    Production protocols need standardized group-specific validation.
     """
     p_int = validate_integer(p, "Prime modulus (p)")
     if p_int < 5 or not is_prime(p_int):
@@ -181,9 +182,9 @@ def validate_public_key(public_key: Any, p: int, owner: str = "Public key") -> i
         )
 
     pub_int = validate_integer(public_key, owner)
-    if not (2 <= pub_int <= p_int - 2):
+    if not (2 <= pub_int <= p_int - 1):
         raise DiffieHellmanError(
-            f"{owner} ({pub_int}) must lie in [2, p - 2] ({p_int - 2}) to avoid trivial values."
+            f"{owner} ({pub_int}) must lie in [2, p - 1] ({p_int - 1})."
         )
     return pub_int
 

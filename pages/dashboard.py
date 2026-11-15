@@ -78,7 +78,11 @@ def render_dashboard(result: Optional[ExchangeResult]) -> None:
         derived_hex = derive_hex_key(result["shared_secret"], byte_length=16)
         st.success(
             f"Valid parameters: Alice and Bob derive matching shared secret S = {result['shared_secret']} "
-            f"(128-bit SHA-256 derived key preview: {derived_hex})."
+            f"(HKDF-SHA256 128-bit key-material preview: {derived_hex})."
+        )
+        st.caption(
+            "The shared secret is raw DH output. HKDF derives key material from it; "
+            "this preview is not an authenticated or production protocol key."
         )
     else:
         st.warning(

@@ -95,7 +95,7 @@ def render_brute_force(result: Optional[ExchangeResult]) -> None:
     st.divider()
     st.subheader("Why Parameter Size Matters")
     st.markdown(
-        """
+        r"""
         - **Naive Exhaustive Search Complexity:** Testing every exponent in `[2, p - 2]` takes up to $O(p)$ modular multiplications, which grows exponentially with the bit length $n = \lceil \log_2 p \rceil$ as $O(2^n)$.
         - **Educational Scope Notice:** This loop is a naive linear search meant to visualize small-group weakness. It is **not** a modern cryptanalytic benchmark (such as Baby-Step Giant-Step in $O(\sqrt{p})$, Pollard's rho, or the General Number Field Sieve).
         - **Real-World Security:** Standard Diffie-Hellman groups use 2048-bit to 3072-bit safe primes ($p \approx 2^{2048}$), making exhaustive search physically impossible.

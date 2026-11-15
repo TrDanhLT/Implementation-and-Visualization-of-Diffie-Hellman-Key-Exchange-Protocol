@@ -14,7 +14,7 @@ This application separates the mathematical core from the Streamlit user interfa
 
 ## 2. Features
 
-- **Dashboard & Protocol Overview:** Introduces the protocol, summarizes educational objectives, previews the active simulation state (including a SHA-256 derived session key), and provides direct navigation to every module.
+- **Dashboard & Protocol Overview:** Introduces the protocol, summarizes educational objectives, previews the active simulation state and HKDF-SHA256 derived key material, and provides direct navigation to every module.
 - **9-Stage Interactive Key Exchange Walkthrough:** Steps through public parameter agreement, private key selection, public key generation, public channel transmission, shared secret computation, and verification with `Previous Step`, `Next Step`, `Reset`, and stage-jump controls.
 - **Square-and-Multiply Modular Exponentiation Explorer:** Breaks down $g^e \bmod p$ bit-by-bit (LSB to MSB) using the binary square-and-multiply algorithm on live simulation values or custom small integers.
 - **Man-in-the-Middle (MITM) Attack Simulation:** Visualizes how an active attacker (**Eve**) intercepts and substitutes public keys on an unauthenticated channel to establish two independent shared secrets ($S_{AE}$ with Alice and $S_{BE}$ with Bob).
@@ -83,7 +83,7 @@ Streamlit will start a local web server and open the simulator in your default b
 All unit tests are independent of Streamlit and can be executed with a single command from the project root:
 
 ```bash
-python -m unittest discover -s tests -v
+python3 -m unittest discover -s tests -v
 ```
 
 ---
@@ -97,7 +97,7 @@ Implementation-and-Visualization-of-Diffie-Hellman-Key-Exchange-Protocol/
 │   ├── __init__.py
 │   ├── diffie_hellman.py      # Prime/generator validation, CSPRNG keys, DH exchange, square-and-multiply
 │   ├── attacks.py             # MITM simulation and bounded discrete-log exhaustive search
-│   └── key_derivation.py      # SHA-256 educational key derivation helper
+│   └── key_derivation.py      # HKDF-SHA256 key derivation helper
 ├── pages/                     # Modular Streamlit page views
 │   ├── __init__.py
 │   ├── dashboard.py           # Landing page, objectives, snapshot, and quick navigation
@@ -105,7 +105,7 @@ Implementation-and-Visualization-of-Diffie-Hellman-Key-Exchange-Protocol/
 │   ├── mitm_attack.py         # Active MITM sequence diagram and breakdown
 │   ├── brute_force.py         # Exhaustive DLP search with progress indicator and safety cap
 │   ├── flowchart.py           # Interactive Plotly protocol sequence diagram
-│   └── testing.py             # Live unittest runner and coverage summary
+│   └── testing.py             # Live unittest runner and test summary
 ├── styles/
 │   └── custom.css             # Dark theme styling, semantic role badges, and responsive rules
 ├── tests/                     # Independent unittest suite
@@ -113,9 +113,8 @@ Implementation-and-Visualization-of-Diffie-Hellman-Key-Exchange-Protocol/
 │   ├── test_diffie_hellman.py # Core math, validation, boolean rejection, and KDF tests
 │   ├── test_mitm.py           # MITM key-substitution and dual-secret tests
 │   └── test_brute_force.py    # Brute-force recovery, search cap, and callback tests
-├── .streamlit/
-│   └── config.toml            # Streamlit theme and server configuration
-├── requirements.txt           # Minimal runtime dependencies (streamlit, plotly)
+├── requirements.txt           # Runtime dependencies (streamlit, plotly, cryptography)
+├── .streamlit/config.toml     # Streamlit theme and server configuration
 ├── .gitignore
 └── README.md
 ```
@@ -125,22 +124,26 @@ Implementation-and-Visualization-of-Diffie-Hellman-Key-Exchange-Protocol/
 ## 8. Cryptographic Concepts Explained
 
 ### Diffie-Hellman Key Exchange
-1. **Public Parameters:** Alice and Bob agree on a prime modulus $p$ and a primitive root (generator) $g \in \{2, \dots, p-2\}$.
+1. **Public Parameters:** Alice and Bob agree on a prime modulus $p$ and primitive root $g$ modulo $p$. This teaching implementation models the full multiplicative group $\mathbb{Z}_p^*$.
 2. **Private Keys:** Alice selects a random secret $a \in [2, p-2]$; Bob selects $b \in [2, p-2]$.
 3. **Public Keys:** Alice computes $A = g^a \bmod p$ and Bob computes $B = g^b \bmod p$.
-4. **Exchange & Shared Secret:** After exchanging $A$ and $B$ publicly, Alice computes $S_A = B^a \bmod p$ and Bob computes $S_B = A^b \bmod p$. Because $(g^b)^a \equiv (g^a)^b \equiv g^{ab} \pmod p$, both derive the exact same secret $S$.
+4. **Exchange & Shared Secret:** After exchanging $A$ and $B$ publicly, Alice computes $S_A = B^a \bmod p$ and Bob computes $S_B = A^b \bmod p$. Because $(g^b)^a \equiv (g^a)^b \equiv g^{ab} \pmod p$, both derive the same raw integer $S$.
+5. **Key Derivation:** The raw DH integer is encoded as unsigned big-endian bytes and passed through HKDF-SHA256 with salt and `info` context to derive key material. This does not authenticate the exchange or make toy parameters safe.
 
 ### Man-in-the-Middle (MITM) Attack
 Basic Diffie-Hellman does **not** authenticate the sender of $A$ or $B$. An active attacker (**Eve**) positioned between Alice and Bob can intercept $A$ and $B$, substitute her own public keys $E_A = g^{e_a} \bmod p$ and $E_B = g^{e_b} \bmod p$, and establish two separate shared secrets ($S_{AE}$ with Alice and $S_{BE}$ with Bob). Countermeasures include digital signatures, X.509 certificates (TLS), or pre-shared keys.
 
 ### Discrete Logarithm Brute Force
-Recovering $a$ from $(p, g, A = g^a \bmod p)$ is the Discrete Logarithm Problem (DLP). While a naive loop finds $a$ quickly for small primes (e.g., $p < 100{,}000$), computational cost grows exponentially with bit length ($O(2^n)$ for an $n$-bit prime), making 2048-bit+ groups infeasible to brute-force.
+Recovering $a$ from $(p, g, A = g^a \bmod p)$ is the Discrete Logarithm Problem (DLP). This page uses a bounded naive search for small examples. Its $O(p)$ candidate count grows exponentially in bit length; it is not a meaningful attack on standardized groups.
 
 ---
 
 ## 9. Security Disclaimer & Limitations
 
 - **Educational Purpose Only:** This software is built strictly for classroom instruction and self-study. Do **not** use this code or its small demonstration primes to protect real data.
+- **Group Validation Scope:** The core verifies prime $p$, a primitive root $g$, private exponent ranges, and non-identity public field elements. It does not implement a prime-order subgroup or general small-subgroup defense.
+- **MITM Scope:** The simulation computes Eve's two independent shared secrets. It does not implement message encryption, decryption, or tamper detection; those effects are explained conceptually only.
+- **Key Derivation Scope:** HKDF-SHA256 is a standard KDF primitive provided by `cryptography`; a correct KDF does not replace authenticated key exchange, transcript binding, or production group selection.
 - **Naive Brute-Force Loop:** The brute-force module implements a linear search ($O(p)$) for pedagogical clarity rather than sub-exponential cryptanalytic algorithms (such as Baby-Step Giant-Step, Pollard's rho, or the General Number Field Sieve).
 - **No Network Transport:** All participants execute in local Python memory to visualize message flow without socket or TLS overhead.
 

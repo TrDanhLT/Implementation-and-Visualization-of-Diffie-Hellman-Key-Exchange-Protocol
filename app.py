@@ -200,4 +200,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # Claim Streamlit's router so it does not auto-run the render modules in
+    # ./pages as standalone scripts. The app keeps its existing radio router.
+    st.navigation(
+        [st.Page(main, title="Diffie-Hellman Key Exchange Simulator", default=True)],
+        position="hidden",
+    ).run()

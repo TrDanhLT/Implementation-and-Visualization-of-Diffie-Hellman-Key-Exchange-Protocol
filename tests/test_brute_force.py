@@ -14,6 +14,7 @@ class TestBruteForceDiscreteLog(unittest.TestCase):
         res = brute_force_discrete_log(p=23, g=5, target_public_key=8, max_attempts=100)
         self.assertTrue(res["found"])
         self.assertEqual(res["recovered_private_key"], 6)
+        self.assertEqual(pow(5, res["recovered_private_key"], 23), 8)
         self.assertEqual(res["attempts"], 5)  # candidates 2, 3, 4, 5, 6
         self.assertFalse(res["limit_reached"])
         self.assertGreaterEqual(res["elapsed_seconds"], 0.0)
