@@ -129,3 +129,32 @@ def calculate_exchange(p, g, a, b):
         "bob_secret": bob_secret,
         "shared_secret": alice_secret
     }
+
+
+def calculate_mitm_exchange(p, g, a, b, eve_a, eve_b):
+    """Simulate Eve replacing the public keys in a Diffie-Hellman exchange."""
+
+    exchange = calculate_exchange(p, g, a, b)
+
+    if not 2 <= eve_a <= p - 2:
+        raise DiffieHellmanError("Invalid Eve private key for impersonating Alice.")
+
+    if not 2 <= eve_b <= p - 2:
+        raise DiffieHellmanError("Invalid Eve private key for impersonating Bob.")
+
+    eve_public_alice = pow(g, eve_a, p)
+    eve_public_bob = pow(g, eve_b, p)
+
+    alice_eve_secret = pow(eve_public_bob, a, p)
+    eve_alice_secret = pow(exchange["A"], eve_b, p)
+    bob_eve_secret = pow(eve_public_alice, b, p)
+    eve_bob_secret = pow(exchange["B"], eve_a, p)
+
+    return {
+        "alice_receives": eve_public_bob,
+        "bob_receives": eve_public_alice,
+        "alice_secret": alice_eve_secret,
+        "eve_alice_secret": eve_alice_secret,
+        "bob_secret": bob_eve_secret,
+        "eve_bob_secret": eve_bob_secret,
+    }

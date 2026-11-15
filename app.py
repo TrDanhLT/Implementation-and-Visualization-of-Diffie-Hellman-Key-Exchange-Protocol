@@ -3,6 +3,7 @@ import streamlit as st
 from dh_app.diffie_hellman import (
     DiffieHellmanError,
     calculate_exchange,
+    calculate_mitm_exchange,
     generate_private_key,
     is_generator,
     is_prime,
@@ -172,6 +173,62 @@ st.markdown(
         box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.2);
     }
 
+    /* ---------- Workflow steps ---------- */
+    .workflow-step {
+        background: linear-gradient(145deg, rgba(22, 39, 63, 0.96), rgba(15, 27, 45, 0.96));
+        border: 1px solid rgba(103, 232, 249, 0.2);
+        border-radius: 18px;
+        padding: 1rem 1rem 0.9rem;
+        min-height: 220px;
+        height: 100%;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+
+    .workflow-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 999px;
+        background: rgba(103, 232, 249, 0.12);
+        border: 1px solid rgba(103, 232, 249, 0.35);
+        color: #7dd3fc;
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.8rem;
+    }
+
+    .workflow-title {
+        color: #f1f7ff;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.45rem;
+        line-height: 1.35;
+    }
+
+    .workflow-description {
+        color: #c4d0e0;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    .workflow-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 220px;
+        color: rgba(103, 232, 249, 0.9);
+        font-size: 2.1rem;
+        font-weight: 700;
+    }
+
     /* ---------- Inputs ---------- */
     .stTextInput input,
     .stNumberInput input,
@@ -247,6 +304,7 @@ page = st.sidebar.radio(
         "Protocol Flowchart",
         "Testing",
     ],
+    key="active_page",
 )
 
 # --------------------------------------------------
@@ -266,6 +324,24 @@ def generate_random_keys():
         st.session_state.random_key_error = (
             "Enter a valid prime number before generating private keys."
         )
+
+
+def activate_mitm_attack():
+    p_value = int(st.session_state.get("parameter_p", 23))
+    st.session_state.mitm_attack_active = True
+    st.session_state.active_page = "Dashboard"
+    st.session_state.eve_a = min(max(int(st.session_state.get("eve_a", 7)), 2), p_value - 2)
+    st.session_state.eve_b = min(max(int(st.session_state.get("eve_b", 9)), 2), p_value - 2)
+
+
+def reset_current_simulation():
+    p_value = int(st.session_state.get("parameter_p", 23))
+    st.session_state.mitm_attack_active = False
+    st.session_state.active_page = "Dashboard"
+    st.session_state.eve_a = min(7, p_value - 2)
+    st.session_state.eve_b = min(9, p_value - 2)
+
+
 # --------------------------------------------------
 # MAIN-WORKSPACE CONFIGURATION
 # --------------------------------------------------
@@ -326,9 +402,7 @@ with st.container(border=True):
             key="bob_private_input",
         )
 
-    random_col, note_col = st.columns([1, 2])
-
-    random_col, note_col = st.columns([1, 2])
+    random_col, attack_col, reset_col = st.columns([1.5, 0.8, 0.6])
 
     with random_col:
         st.button(
@@ -340,12 +414,27 @@ with st.container(border=True):
         if st.session_state.get("random_key_error"):
             st.error(st.session_state.random_key_error)
             st.session_state.random_key_error = None
-        
-    with note_col:
-        st.caption(
-            "Learning mode only: the small example values used here are not "
-            "suitable for real-world cryptographic security."
+
+    with attack_col:
+        st.button(
+            "🕵️ Attack",
+            use_container_width=True,
+            on_click=activate_mitm_attack,
+            help="Open the MITM attack simulation on the dashboard.",
         )
+
+    with reset_col:
+        st.button(
+            "🔄 Reset",
+            use_container_width=True,
+            on_click=reset_current_simulation,
+            help="Exit attack mode and reset the simulation view.",
+        )
+
+    st.caption(
+        "Learning mode only: the small example values used here are not "
+        "suitable for real-world cryptographic security."
+    )
 # SHARED VALIDATION AND CALCULATION
 result = None
 validation_error = None
@@ -354,6 +443,13 @@ try:
     result = calculate_exchange(int(p), int(g), int(a), int(b))
 except (DiffieHellmanError, ValueError) as error:
     validation_error = str(error)
+
+if "eve_a" not in st.session_state:
+    st.session_state.eve_a = min(7, int(p) - 2)
+if "eve_b" not in st.session_state:
+    st.session_state.eve_b = min(9, int(p) - 2)
+st.session_state.eve_a = min(max(int(st.session_state.eve_a), 2), int(p) - 2)
+st.session_state.eve_b = min(max(int(st.session_state.eve_b), 2), int(p) - 2)
 
 if validation_error:
     st.error(f"Configuration error: {validation_error}")
@@ -413,13 +509,28 @@ if page == "Dashboard":
         ("06", "Explore security tests", "Examine a man-in-the-middle scenario and a small brute-force demonstration."),
     ]
 
-    flow_columns = st.columns(3)
+    widths = []
+    for i in range(len(flow)):
+        widths.append(1.0)
+        if i < len(flow) - 1:
+            widths.append(0.2)
+
+    flow_columns = st.columns(widths)
     for index, (number, title, description) in enumerate(flow):
-        with flow_columns[index % 3]:
-            with st.container(border=True):
-                st.markdown(f"**STEP {number}**")
-                st.markdown(f"#### {title}")
-                st.write(description)
+        with flow_columns[index * 2]:
+            st.markdown(
+                f"""
+                <div class="workflow-step">
+                    <div class="workflow-number">{number}</div>
+                    <div class="workflow-title">{title}</div>
+                    <div class="workflow-description">{description}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        if index < len(flow) - 1:
+            with flow_columns[index * 2 + 1]:
+                st.markdown('<div class="workflow-arrow">→</div>', unsafe_allow_html=True)
 
     st.divider()
     st.subheader("📌 Current Simulation")
@@ -432,6 +543,77 @@ if page == "Dashboard":
             "The current parameters produce a matching shared secret "
             "for Alice and Bob."
         )
+        if st.session_state.get("mitm_attack_active", False):
+            st.divider()
+            st.subheader("🕵️ Man-in-the-Middle Attack")
+            st.warning(
+                "Eve intercepts the public-key messages and replaces them "
+                "before they reach Alice and Bob."
+            )
+
+            eve_col_a, eve_col_b = st.columns(2)
+            with eve_col_a:
+                eve_a = st.number_input(
+                    "Eve's private key (impersonating Alice to Bob)",
+                    min_value=2,
+                    max_value=int(p) - 2,
+                    step=1,
+                    key="eve_a",
+                )
+            with eve_col_b:
+                eve_b = st.number_input(
+                    "Eve's private key (impersonating Bob to Alice)",
+                    min_value=2,
+                    max_value=int(p) - 2,
+                    step=1,
+                    key="eve_b",
+                )
+
+            try:
+                attack = calculate_mitm_exchange(
+                    int(p), int(g), int(a), int(b), int(eve_a), int(eve_b)
+                )
+            except (DiffieHellmanError, ValueError) as error:
+                st.error(f"Could not run the attack simulation: {error}")
+            else:
+                st.markdown("#### Intercepted and replaced public-key messages")
+                alice_message, bob_message = st.columns(2)
+                alice_message.metric(
+                    "Bob sends (intercepted by Eve)", result["B"]
+                )
+                alice_message.metric(
+                    "Alice receives (Eve's replacement)",
+                    attack["alice_receives"],
+                )
+                bob_message.metric(
+                    "Alice sends (intercepted by Eve)", result["A"]
+                )
+                bob_message.metric(
+                    "Bob receives (Eve's replacement)",
+                    attack["bob_receives"],
+                )
+
+                st.markdown("#### Separate shared secrets")
+                alice_secret_col, bob_secret_col = st.columns(2)
+                alice_secret_col.metric(
+                    "Alice ↔ Eve secret", attack["alice_secret"]
+                )
+                alice_secret_col.caption(
+                    f"Eve calculates the same secret: {attack['eve_alice_secret']}"
+                )
+                bob_secret_col.metric("Bob ↔ Eve secret", attack["bob_secret"])
+                bob_secret_col.caption(
+                    f"Eve calculates the same secret: {attack['eve_bob_secret']}"
+                )
+                st.error(
+                    "MITM attack successful: Alice and Bob now share separate "
+                    "secrets with Eve instead of one authenticated secret."
+                )
+                st.info(
+                    "Change Eve's private keys above to see the substituted "
+                    "messages and secrets update. Select Reset in Simulation "
+                    "Configuration to return to the normal simulation."
+                )
     else:
         st.warning("The current configuration is invalid. Update the parameters above.")
 
@@ -573,8 +755,7 @@ elif page == "MITM Attack":
             eve_a = st.number_input(
                 "Eve private key used to impersonate Alice to Bob",
                 min_value=2,
-                max_value=999_999,
-                value=7,
+                max_value=int(p) - 2,
                 step=1,
                 key="eve_a",
             )
@@ -582,59 +763,50 @@ elif page == "MITM Attack":
             eve_b = st.number_input(
                 "Eve private key used to impersonate Bob to Alice",
                 min_value=2,
-                max_value=999_999,
-                value=9,
+                max_value=int(p) - 2,
                 step=1,
                 key="eve_b",
             )
 
-        if not (2 <= eve_a <= int(p) - 2 and 2 <= eve_b <= int(p) - 2):
-            st.error("Eve's private keys must be between 2 and p − 2.")
+        try:
+            attack = calculate_mitm_exchange(
+                int(p), int(g), int(a), int(b), int(eve_a), int(eve_b)
+            )
+        except (DiffieHellmanError, ValueError) as error:
+            st.error(f"Could not run the attack simulation: {error}")
         else:
-            eve_public_alice = pow(int(g), int(eve_a), int(p))
-            eve_public_bob = pow(int(g), int(eve_b), int(p))
-
-            alice_fake_key = eve_public_bob
-            bob_fake_key = eve_public_alice
-
-            alice_eve_secret = pow(alice_fake_key, int(a), int(p))
-            bob_eve_secret = pow(bob_fake_key, int(b), int(p))
-
-            eve_alice_secret = pow(result["A"], int(eve_b), int(p))
-            eve_bob_secret = pow(result["B"], int(eve_a), int(p))
-
             st.subheader("1. Eve intercepts and replaces the public keys")
             left, right = st.columns(2)
             with left:
                 st.markdown("#### Alice")
                 st.metric("Original Bob public key", result["B"])
-                st.metric("Key Alice receives from Eve", alice_fake_key)
+                st.metric("Key Alice receives from Eve", attack["alice_receives"])
             with right:
                 st.markdown("#### Bob")
                 st.metric("Original Alice public key", result["A"])
-                st.metric("Key Bob receives from Eve", bob_fake_key)
+                st.metric("Key Bob receives from Eve", attack["bob_receives"])
 
             st.subheader("2. Two separate shared secrets are created")
             left, right = st.columns(2)
             with left:
                 st.markdown("#### Alice ↔ Eve")
-                st.metric("Alice's secret", alice_eve_secret)
-                st.metric("Eve's matching secret", eve_alice_secret)
+                st.metric("Alice's secret", attack["alice_secret"])
+                st.metric("Eve's matching secret", attack["eve_alice_secret"])
             with right:
                 st.markdown("#### Bob ↔ Eve")
-                st.metric("Bob's secret", bob_eve_secret)
-                st.metric("Eve's matching secret", eve_bob_secret)
+                st.metric("Bob's secret", attack["bob_secret"])
+                st.metric("Eve's matching secret", attack["eve_bob_secret"])
 
             if (
-                alice_eve_secret == eve_alice_secret
-                and bob_eve_secret == eve_bob_secret
+                attack["alice_secret"] == attack["eve_alice_secret"]
+                and attack["bob_secret"] == attack["eve_bob_secret"]
             ):
                 st.error("MAN-IN-THE-MIDDLE ATTACK SUCCESSFUL")
                 st.write(
                     "Eve has established two separate shared secrets. "
                     "Alice and Bob are not sharing one end-to-end secret."
                 )
-                if alice_eve_secret == bob_eve_secret:
+                if attack["alice_secret"] == attack["bob_secret"]:
                     st.warning(
                         "For these particular values, the two numeric secrets happen to match. "
                         "The protocol still has two separate Eve-mediated exchanges."

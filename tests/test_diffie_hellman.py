@@ -5,6 +5,7 @@ from dh_app.diffie_hellman import (
     is_prime,
     is_generator,
     calculate_exchange,
+    calculate_mitm_exchange,
     generate_private_key,
     DiffieHellmanError,
 )
@@ -46,6 +47,18 @@ class TestDiffieHellman(unittest.TestCase):
     def test_generate_private_key_rejects_non_prime(self):
         with self.assertRaises(DiffieHellmanError):
             generate_private_key(24)
+
+    def test_mitm_exchange_replaces_messages_and_matches_secrets(self):
+        result = calculate_mitm_exchange(23, 5, 6, 15, 7, 9)
+
+        self.assertEqual(result["alice_receives"], pow(5, 9, 23))
+        self.assertEqual(result["bob_receives"], pow(5, 7, 23))
+        self.assertEqual(result["alice_secret"], result["eve_alice_secret"])
+        self.assertEqual(result["bob_secret"], result["eve_bob_secret"])
+
+    def test_mitm_exchange_rejects_invalid_eve_key(self):
+        with self.assertRaises(DiffieHellmanError):
+            calculate_mitm_exchange(23, 5, 6, 15, 1, 9)
 
 if __name__ == "__main__":
     unittest.main()
